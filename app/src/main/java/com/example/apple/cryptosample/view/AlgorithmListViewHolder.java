@@ -2,6 +2,7 @@ package com.example.apple.cryptosample.view;
 
 import android.content.Context;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
@@ -20,12 +21,14 @@ public class AlgorithmListViewHolder extends RecyclerView.ViewHolder{
     public AlgorithmListViewHolder(View itemView) {
         super(itemView);
 
-        name_textview = (TextView)itemView.findViewById(R.id.algorithm_name_textview);
+        name_textview = (TextView)itemView.findViewById(R.id.algorithm_name);
     }
 
     public void set_Algorithm_info(AlgorithmData algorithm_data, Context context) {
         this.algorithmData = algorithm_data; //데이터 정보 등록//
 
-        this.algorithmData.setAlgorithm_name(algorithm_data.algorithm_name);
+        Log.d("json data view holder", algorithm_data.getAlgorithm_name());
+
+        this.name_textview.setText(algorithm_data.getAlgorithm_name());
     }
 }

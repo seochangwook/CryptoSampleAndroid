@@ -58,7 +58,7 @@ public class AlgorithmListAdapter extends RecyclerView.Adapter<RecyclerView.View
                 //데이터 클래스, 자원을 할당//
                 algorithmListViewHolder.set_Algorithm_info(algorithmData.getAlgorithmDataList().get(position), context);
 
-                Log.d("json data_bind", algorithmData.getAlgorithmDataList().get(position).algorithm_name);
+                Log.d("json data_bind", algorithmData.getAlgorithmDataList().get(position).getAlgorithm_name());
 
                 return;
             }

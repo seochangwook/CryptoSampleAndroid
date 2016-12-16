@@ -13,12 +13,15 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import com.example.apple.cryptosample.data.jsondata.AlgorithmDataRequest;
 import com.example.apple.cryptosample.data.jsondata.AlgorithmDataRequestAlgorithms;
 import com.example.apple.cryptosample.data.viewdata.AlgorithmData;
 import com.example.apple.cryptosample.manager.networkmanager.NetworkManager;
+import com.example.apple.cryptosample.securemodule.AESForNodejs;
 import com.example.apple.cryptosample.view.LoadMoreView;
 import com.example.apple.cryptosample.widget.AlgorithmListAdapter;
 import com.google.gson.Gson;
@@ -38,9 +41,12 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
-    /**
-     * 어댑터, 데이터
-     **/
+    public static final String password = "CIPHER_KEY"; //서버와의 약속//
+
+    /** "1" - aes256 ,"2" - sha256 **/
+    String encrypt_decrypt_case = "";
+
+    /**어댑터, 데이터**/
     AlgorithmListAdapter algorithmListAdapter;
     AlgorithmData algorithmData;
 
@@ -50,6 +56,9 @@ public class MainActivity extends AppCompatActivity {
     private FamiliarRecyclerView recyclerview;
     private ProgressDialog pDialog;
 
+    EditText input_crypto_str_edittext;
+    Button send_button;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,6 +66,8 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
 
         algorithm_list = (FamiliarRefreshRecyclerView)findViewById(R.id.data_info_list);
+        input_crypto_str_edittext = (EditText)findViewById(R.id.input_str_edittext);
+        send_button = (Button)findViewById(R.id.send_button);
 
         setSupportActionBar(toolbar);
 
@@ -88,6 +99,48 @@ public class MainActivity extends AppCompatActivity {
 
         recyclerview.setAdapter(algorithmListAdapter);
 
+        //리사이클러뷰 클릭 리스너//
+        recyclerview.setOnItemClickListener(new FamiliarRecyclerView.OnItemClickListener() {
+            @Override
+            public void onItemClick(FamiliarRecyclerView familiarRecyclerView, View view, int position) {
+                String select_encrpyt_name = algorithmData.getAlgorithmDataList().get(position).getAlgorithm_name();
+
+                if(select_encrpyt_name.equals("aes256"))
+                {
+                    Toast.makeText(getApplicationContext(), "aes256 알고리즘 선택", Toast.LENGTH_SHORT).show();
+
+                    encrypt_decrypt_case = "1";
+                }
+
+                else if(select_encrpyt_name.equals("sha256"))
+                {
+                    Toast.makeText(getApplicationContext(), "sha256 알고리즘 선택", Toast.LENGTH_SHORT).show();
+
+                    encrypt_decrypt_case = "2";
+                }
+            }
+        });
+
+        send_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                //선택된 방식으로 암호화 진행//
+                if(encrypt_decrypt_case.equals("1")) //AES암호화 진행//
+                {
+                    String plain_str = input_crypto_str_edittext.getText().toString();
+
+                    Log.d("json Encrypt plain", plain_str);
+
+                    //암호화 후 데이터 전송//
+                    String encrpyt_str = Encrpyt_AES(plain_str);
+
+                    Log.d("json Encrpyt str", encrpyt_str);
+
+                    trans_data(encrpyt_str);
+                }
+            }
+        });
+
         /** RecyclerView Refresh이벤트 처리(일반적으로 위에서 당기기기는 현 정보에서 갱신, 아래에서 로딩은 '더보기'기능) **/
         algorithm_list.setOnPullRefreshListener(new FamiliarRefreshRecyclerView.OnPullRefreshListener() {
             @Override
@@ -98,6 +151,14 @@ public class MainActivity extends AppCompatActivity {
                         Log.i("EVENT :", "새로고침 완료");
 
                         algorithm_list.pullRefreshComplete();
+
+                        algorithmData.getAlgorithmDataList().clear(); //리스트 정보 초기화//
+                        algorithmListAdapter.set_AlgorithmData(algorithmData); //초기화된 정보를 갱신//
+
+                        showpDialog();
+
+                        //get_algorithmdata_dummy(); //더미데이터//
+                        get_algorithmdata();
                     }
                 }, 1000);
             }
@@ -112,6 +173,15 @@ public class MainActivity extends AppCompatActivity {
                         Log.i("EVENT :", "새로고침 완료");
 
                         algorithm_list.loadMoreComplete();
+
+                        algorithmData.getAlgorithmDataList().clear(); //리스트 정보 초기화//
+
+                        algorithmListAdapter.set_AlgorithmData(algorithmData); //초기화된 정보를 갱신//
+
+                        showpDialog();
+
+                        //get_algorithmdata_dummy(); //더미데이터//
+                        get_algorithmdata();
 
                         //맨 아래일 시 '더보기' 작업(더보기 작업 생략 - 더미데이터로는 구현하지 않음)//
                         Toast.makeText(MainActivity.this, "더 이상 정보가 없습니다", Toast.LENGTH_SHORT).show();
@@ -134,6 +204,20 @@ public class MainActivity extends AppCompatActivity {
 
         //get_algorithmdata_dummy(); //더미데이터//
         get_algorithmdata();
+    }
+
+    public String Encrpyt_AES(String plain_str)
+    {
+        String encryptedMsg = "";
+
+        //AES-256방식의 암호화//
+        try {
+            encryptedMsg = AESForNodejs.encrypt(plain_str, password);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return encryptedMsg;
     }
 
     public void get_algorithmdata()
@@ -225,6 +309,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         algorithmListAdapter.set_AlgorithmData(algorithmData);
+    }
+
+    public void trans_data(String encrpyt_str)
+    {
+
     }
 
     @Override
