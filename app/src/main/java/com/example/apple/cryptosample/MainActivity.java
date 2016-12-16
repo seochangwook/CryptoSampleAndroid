@@ -15,10 +15,12 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.apple.cryptosample.data.jsondata.AlgorithmDataRequest;
 import com.example.apple.cryptosample.data.jsondata.AlgorithmDataRequestAlgorithms;
+import com.example.apple.cryptosample.data.jsondata.aes.AES_Request;
 import com.example.apple.cryptosample.data.viewdata.AlgorithmData;
 import com.example.apple.cryptosample.manager.networkmanager.NetworkManager;
 import com.example.apple.cryptosample.securemodule.AESForNodejs;
@@ -35,9 +37,11 @@ import cn.iwgang.familiarrecyclerview.FamiliarRecyclerView;
 import cn.iwgang.familiarrecyclerview.FamiliarRefreshRecyclerView;
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.FormBody;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
@@ -45,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
     /** "1" - aes256 ,"2" - sha256 **/
     String encrypt_decrypt_case = "";
+    String log_data_str = "";
 
     /**어댑터, 데이터**/
     AlgorithmListAdapter algorithmListAdapter;
@@ -58,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
 
     EditText input_crypto_str_edittext;
     Button send_button;
+    TextView log_textview;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
         algorithm_list = (FamiliarRefreshRecyclerView)findViewById(R.id.data_info_list);
         input_crypto_str_edittext = (EditText)findViewById(R.id.input_str_edittext);
         send_button = (Button)findViewById(R.id.send_button);
+        log_textview = (TextView)findViewById(R.id.log_textview);
 
         setSupportActionBar(toolbar);
 
@@ -124,6 +131,9 @@ public class MainActivity extends AppCompatActivity {
         send_button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                log_textview.setText("");
+                log_data_str = "";
+
                 //선택된 방식으로 암호화 진행//
                 if(encrypt_decrypt_case.equals("1")) //AES암호화 진행//
                 {
@@ -220,6 +230,20 @@ public class MainActivity extends AppCompatActivity {
         return encryptedMsg;
     }
 
+    public String Decrpyt_AES(String encrypt_str)
+    {
+        String decryptedMsg = "";
+
+        //AES-256방식의 암호화//
+        try {
+            decryptedMsg = AESForNodejs.decrypt(encrypt_str, password);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return decryptedMsg;
+    }
+
     public void get_algorithmdata()
     {
         /** 네트워크 설정을 한다. **/
@@ -313,8 +337,89 @@ public class MainActivity extends AppCompatActivity {
 
     public void trans_data(String encrpyt_str)
     {
+        //네트워크 설정//
+        /** Networok 설정 **/
+        networkManager = NetworkManager.getInstance();
 
+        OkHttpClient client = networkManager.getClient();
+
+        /** POST방식의 프로토콜 요청 설정 **/
+        /** URL 설정 **/
+        HttpUrl.Builder builder = new HttpUrl.Builder();
+
+        builder.scheme("http"); //스킴정의(Http / Https)//
+        builder.host(getResources().getString(R.string.server_domain)); //host정의.//
+        builder.port(3000);
+        builder.addPathSegment("cipher_test");
+
+        //Body설정//
+        FormBody.Builder formBuilder = new FormBody.Builder()
+                .add("input_password", encrpyt_str);
+
+        /** RequestBody 설정(파일 전송 시 Multipart로 설정) **/
+        RequestBody body = formBuilder.build();
+
+        /** Request 설정 **/
+        Request request = new Request.Builder()
+                .url(builder.build())
+                .post(body) //POST방식 적용.//
+                .tag(MainActivity.this)
+                .build();
+
+        /** 비동기 방식(enqueue)으로 Callback 구현 **/
+        client.newCall(request).enqueue(requesciphercallback);
     }
+
+    private Callback requesciphercallback = new Callback() {
+        @Override
+        public void onFailure(Call call, IOException e) //접속 실패의 경우.//
+        {
+            //네트워크 자체에서의 에러상황.//
+            Log.d("ERROR Message : ", e.getMessage());
+
+            if (MainActivity.this != null) {
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        hidepDialog();
+                    }
+                });
+            }
+        }
+
+        @Override
+        public void onResponse(Call call, Response response) throws IOException {
+            final String response_data = response.body().string();
+
+            Log.d("json data", response_data);
+
+            if (MainActivity.this != null) {
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        hidepDialog();
+
+                        log_data_str += response_data + "\n";
+
+                        Gson gson = new Gson();
+
+                        AES_Request aes_request = gson.fromJson(response_data, AES_Request.class);
+
+                        //다시 암호화되서 온 값을 복호화한다.//
+                        String server_data_encrypt = aes_request.getData().getEncrypt();
+
+                        String decrypt_data = Decrpyt_AES(server_data_encrypt);
+
+                        Log.d("decrypt data", decrypt_data);
+
+                        log_data_str = log_data_str + "decrypt data: " + decrypt_data;
+
+                        log_textview.setText(log_data_str);
+                    }
+                });
+            }
+        }
+    };
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
