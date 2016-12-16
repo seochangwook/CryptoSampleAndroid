@@ -1,22 +1,125 @@
 package com.example.apple.cryptosample;
 
+import android.app.ProgressDialog;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.Toolbar;
-import android.view.View;
+import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Toast;
+
+import com.example.apple.cryptosample.data.jsondata.AlgorithmDataRequest;
+import com.example.apple.cryptosample.data.jsondata.AlgorithmDataRequestAlgorithms;
+import com.example.apple.cryptosample.data.viewdata.AlgorithmData;
+import com.example.apple.cryptosample.manager.networkmanager.NetworkManager;
+import com.example.apple.cryptosample.view.LoadMoreView;
+import com.example.apple.cryptosample.widget.AlgorithmListAdapter;
+import com.google.gson.Gson;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import cn.iwgang.familiarrecyclerview.FamiliarRecyclerView;
+import cn.iwgang.familiarrecyclerview.FamiliarRefreshRecyclerView;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
+    /**
+     * 어댑터, 데이터
+     **/
+    AlgorithmListAdapter algorithmListAdapter;
+    AlgorithmData algorithmData;
+
+    NetworkManager networkManager;
+
+    private FamiliarRefreshRecyclerView algorithm_list;
+    private FamiliarRecyclerView recyclerview;
+    private ProgressDialog pDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+
+        algorithm_list = (FamiliarRefreshRecyclerView)findViewById(R.id.data_info_list);
+
         setSupportActionBar(toolbar);
+
+        pDialog = new ProgressDialog(MainActivity.this);
+        pDialog.setMessage("Please wait...");
+        pDialog.setCancelable(false);
+
+        /** RecyclerView 정의 **/
+        //RefreshRecyclerView 기능설정.//
+        algorithm_list.setId(android.R.id.list);
+        algorithm_list.setLoadMoreView(new LoadMoreView(MainActivity.this));
+        algorithm_list.setColorSchemeColors(0xFFFF5000, Color.RED, Color.YELLOW, Color.GREEN);
+        algorithm_list.setLoadMoreEnabled(true);
+
+        //RecyclerView의 특징을 RefreshRecyclerView에 연결//
+        recyclerview = algorithm_list.getFamiliarRecyclerView();
+        recyclerview.setItemAnimator(new DefaultItemAnimator());
+        recyclerview.setHasFixedSize(true);
+
+        /** RecyclerView의 각종 뷰 정의(HeaderView, EmptyView, FooterView) **/
+        View algorithmlist_emptyview = LayoutInflater.from(MainActivity.this).inflate(R.layout.algorithmlist_emptyview, null);
+
+        //리사이클뷰에 연결//
+        recyclerview.setEmptyView(algorithmlist_emptyview, true);
+
+        /** RecyclerView에 Adapter, 데이터 설정 **/
+        algorithmData = new AlgorithmData();
+        algorithmListAdapter = new  AlgorithmListAdapter(MainActivity.this);
+
+        recyclerview.setAdapter(algorithmListAdapter);
+
+        /** RecyclerView Refresh이벤트 처리(일반적으로 위에서 당기기기는 현 정보에서 갱신, 아래에서 로딩은 '더보기'기능) **/
+        algorithm_list.setOnPullRefreshListener(new FamiliarRefreshRecyclerView.OnPullRefreshListener() {
+            @Override
+            public void onPullRefresh() {
+                new android.os.Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.i("EVENT :", "새로고침 완료");
+
+                        algorithm_list.pullRefreshComplete();
+                    }
+                }, 1000);
+            }
+        });
+
+        algorithm_list.setOnLoadMoreListener(new FamiliarRefreshRecyclerView.OnLoadMoreListener() {
+            @Override
+            public void onLoadMore() {
+                new android.os.Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.i("EVENT :", "새로고침 완료");
+
+                        algorithm_list.loadMoreComplete();
+
+                        //맨 아래일 시 '더보기' 작업(더보기 작업 생략 - 더미데이터로는 구현하지 않음)//
+                        Toast.makeText(MainActivity.this, "더 이상 정보가 없습니다", Toast.LENGTH_SHORT).show();
+                    }
+                }, 1000);
+
+            }
+        });
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -26,6 +129,102 @@ public class MainActivity extends AppCompatActivity {
                         .setAction("Action", null).show();
             }
         });
+
+        showpDialog();
+
+        //get_algorithmdata_dummy(); //더미데이터//
+        get_algorithmdata();
+    }
+
+    public void get_algorithmdata()
+    {
+        /** 네트워크 설정을 한다. **/
+        /** OkHttp 자원 설정 **/
+        networkManager = NetworkManager.getInstance();
+
+        /** Client 설정 **/
+        OkHttpClient client = networkManager.getClient();
+
+        /** GET방식의 프로토콜 Scheme 정의 **/
+        //우선적으로 Url을 만든다.//
+        HttpUrl.Builder builder = new HttpUrl.Builder();
+
+        builder.scheme("http");
+        builder.host(getResources().getString(R.string.server_domain));
+        builder.port(3000);
+        builder.addPathSegment("algorithm_list");
+
+       /* builder.addQueryParameter("page", "1");
+        builder.addQueryParameter("count", "20");*/
+
+        /** Request 설정 **/
+        Request request = new Request.Builder()
+                .url(builder.build())
+                .tag(this)
+                .build();
+
+        /** 비동기 방식(enqueue)으로 Callback 구현 **/
+        client.newCall(request).enqueue(requestalgorithmlistcallback);
+    }
+
+    private Callback requestalgorithmlistcallback = new Callback() {
+        @Override
+        public void onFailure(Call call, IOException e) //접속 실패의 경우.//
+        {
+            //네트워크 자체에서의 에러상황.//
+            Log.d("ERROR Message : ", e.getMessage());
+
+            if (MainActivity.this != null) {
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        hidepDialog();
+                    }
+                });
+            }
+        }
+
+        @Override
+        public void onResponse(Call call, Response response) throws IOException {
+            final String response_data = response.body().string();
+
+            Log.d("json data", response_data);
+
+            if (MainActivity.this != null) {
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        hidepDialog();
+
+                        Gson gson = new Gson();
+
+                        AlgorithmDataRequest algorithmdatarequest = gson.fromJson(response_data, AlgorithmDataRequest.class);
+
+                        setData(algorithmdatarequest.getAlgorithms(), algorithmdatarequest.getAlgorithms().length);
+                    }
+                });
+            }
+        }
+    };
+
+    public void setData(AlgorithmDataRequestAlgorithms[] algorithm_list, int algorithm_list_size)
+    {
+        List<AlgorithmDataRequestAlgorithms> list = new ArrayList<>();
+
+        list.addAll(Arrays.asList(algorithm_list));
+
+        for(int i=0; i<algorithm_list_size; i++)
+        {
+            AlgorithmData new_data = new AlgorithmData();
+
+            new_data.setAlgorithm_name(list.get(i).getName());
+
+            Log.d("json data: ", list.get(i).getName());
+
+            algorithmData.algorithmDataList.add((new_data));
+        }
+
+        algorithmListAdapter.set_AlgorithmData(algorithmData);
     }
 
     @Override
@@ -48,5 +247,15 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showpDialog() {
+        if (!pDialog.isShowing())
+            pDialog.show();
+    }
+
+    private void hidepDialog() {
+        if (pDialog.isShowing())
+            pDialog.dismiss();
     }
 }

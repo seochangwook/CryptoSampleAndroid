@@ -14,9 +14,9 @@
 
     <EditText
         android:id="@+id/input_str_edittext"
-        android:layout_width="270dp"
+        android:layout_width="260dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="10dp"
         android:hint="input str for crypto"
         android:background="@android:drawable/editbox_background_normal"/>
 
@@ -25,7 +25,39 @@
         android:layout_width="60dp"
         android:layout_height="wrap_content"
         android:text="send"
-        android:layout_marginLeft="280dp"/>
+        android:layout_marginTop="5dp"
+        android:layout_marginLeft="270dp"/>
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/line_dimen"
+        android:layout_below="@+id/input_str_edittext"
+        android:layout_marginTop="9dp"
+        android:background="@mipmap/line" />
 
+    <cn.iwgang.familiarrecyclerview.FamiliarRefreshRecyclerView
+        android:id="@+id/data_info_list"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_gravity="left|top"
+        android:layout_marginTop="60dp"
+        android:scrollbars="horizontal"
+        app:frv_dividerHeight="0.5dp"
+        app:frv_layoutManager="linear"
+        app:frv_layoutManagerOrientation="horizontal">
+    </cn.iwgang.familiarrecyclerview.FamiliarRefreshRecyclerView>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/line_dimen"
+        android:layout_marginTop="120dp"
+        android:background="@mipmap/line" />
+
+    <TextView
+        android:id="@+id/log_textview"
+        android:layout_width="match_parent"
+        android:layout_height="380dp"
+        android:layout_marginTop="130dp"
+        android:hint="view log"
+        android:background="@android:drawable/editbox_background_normal"/>
 </RelativeLayout>
