@@ -1,6 +1,7 @@
 package com.example.apple.cryptosample.securemodule;
 
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
@@ -62,4 +63,22 @@ public class AESForNodejs {
         }
         return sb.toString();
     }
+
+    public static String SHA256(String plain_str, String algorithm) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance(algorithm);
+        md.update(plain_str.getBytes());
+
+        byte byteData[] = md.digest();
+
+        //convert the byte to hex format method 1
+        StringBuffer hashCodeBuffer = new StringBuffer();
+
+        for (int i = 0; i < byteData.length; i++) {
+            hashCodeBuffer.append(Integer.toString((byteData[i] & 0xff) + 0x100, 16).substring(1));
+        }
+
+        return hashCodeBuffer.toString();
+    }
 }
+
+

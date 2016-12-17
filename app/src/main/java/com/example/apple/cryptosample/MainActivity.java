@@ -21,6 +21,7 @@ import android.widget.Toast;
 import com.example.apple.cryptosample.data.jsondata.AlgorithmDataRequest;
 import com.example.apple.cryptosample.data.jsondata.AlgorithmDataRequestAlgorithms;
 import com.example.apple.cryptosample.data.jsondata.aes.AES_Request;
+import com.example.apple.cryptosample.data.jsondata.sha.ShaAlgorithmRequest;
 import com.example.apple.cryptosample.data.viewdata.AlgorithmData;
 import com.example.apple.cryptosample.manager.networkmanager.NetworkManager;
 import com.example.apple.cryptosample.securemodule.AESForNodejs;
@@ -112,16 +113,16 @@ public class MainActivity extends AppCompatActivity {
             public void onItemClick(FamiliarRecyclerView familiarRecyclerView, View view, int position) {
                 String select_encrpyt_name = algorithmData.getAlgorithmDataList().get(position).getAlgorithm_name();
 
-                if(select_encrpyt_name.equals("aes256"))
+                if(select_encrpyt_name.equals("aes128"))
                 {
-                    Toast.makeText(getApplicationContext(), "aes256 알고리즘 선택", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "aes128 알고리즘 선택", Toast.LENGTH_SHORT).show();
 
                     encrypt_decrypt_case = "1";
                 }
 
-                else if(select_encrpyt_name.equals("sha256"))
+                else if(select_encrpyt_name.equals("sha512"))
                 {
-                    Toast.makeText(getApplicationContext(), "sha256 알고리즘 선택", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "sha512 알고리즘 선택", Toast.LENGTH_SHORT).show();
 
                     encrypt_decrypt_case = "2";
                 }
@@ -146,7 +147,22 @@ public class MainActivity extends AppCompatActivity {
 
                     Log.d("json Encrpyt str", encrpyt_str);
 
-                    trans_data(encrpyt_str);
+                    trans_data_aes(encrpyt_str);
+                }
+
+                else if(encrypt_decrypt_case.equals("2")) //HASH암호화(검증용)//
+                {
+                    String plain_str = input_crypto_str_edittext.getText().toString();
+
+                    Log.d("json Encrypt plain", plain_str);
+
+                    //sha-512방식으로 암호화//
+                    String encrypt_str = Encrypt_SHA(plain_str);
+
+                    Log.d("json Encrypt str", encrypt_str);
+
+                    //데이터 전송//
+                    trans_data_hash(encrypt_str);
                 }
             }
         });
@@ -216,12 +232,14 @@ public class MainActivity extends AppCompatActivity {
         get_algorithmdata();
     }
 
+    /** AES암호화 알고리즘 **/
     public String Encrpyt_AES(String plain_str)
     {
         String encryptedMsg = "";
 
         //AES-256방식의 암호화//
         try {
+            //encryptedMsg = AESForNodejs.encrypt(plain_str, password);
             encryptedMsg = AESForNodejs.encrypt(plain_str, password);
         } catch (Exception e) {
             e.printStackTrace();
@@ -230,6 +248,7 @@ public class MainActivity extends AppCompatActivity {
         return encryptedMsg;
     }
 
+    /** AES복호화 알고리즘 **/
     public String Decrpyt_AES(String encrypt_str)
     {
         String decryptedMsg = "";
@@ -242,6 +261,20 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return decryptedMsg;
+    }
+
+    public String Encrypt_SHA(String plain_text)
+    {
+        String encryptedMsg = "";
+
+        //SHA512암호화//
+        try {
+            encryptedMsg = AESForNodejs.SHA256(plain_text,"SHA-512");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return encryptedMsg;
     }
 
     public void get_algorithmdata()
@@ -335,7 +368,7 @@ public class MainActivity extends AppCompatActivity {
         algorithmListAdapter.set_AlgorithmData(algorithmData);
     }
 
-    public void trans_data(String encrpyt_str)
+    public void trans_data_aes(String encrpyt_str)
     {
         //네트워크 설정//
         /** Networok 설정 **/
@@ -369,6 +402,87 @@ public class MainActivity extends AppCompatActivity {
         /** 비동기 방식(enqueue)으로 Callback 구현 **/
         client.newCall(request).enqueue(requesciphercallback);
     }
+
+    public void trans_data_hash(String encrpyt_str)
+    {
+        //네트워크 설정//
+        /** Networok 설정 **/
+        networkManager = NetworkManager.getInstance();
+
+        OkHttpClient client = networkManager.getClient();
+
+        /** POST방식의 프로토콜 요청 설정 **/
+        /** URL 설정 **/
+        HttpUrl.Builder builder = new HttpUrl.Builder();
+
+        builder.scheme("http"); //스킴정의(Http / Https)//
+        builder.host(getResources().getString(R.string.server_domain)); //host정의.//
+        builder.port(3000);
+        builder.addPathSegment("hash_trans");
+
+        //Body설정//
+        FormBody.Builder formBuilder = new FormBody.Builder()
+                .add("input_hash", encrpyt_str);
+
+        /** RequestBody 설정(파일 전송 시 Multipart로 설정) **/
+        RequestBody body = formBuilder.build();
+
+        /** Request 설정 **/
+        Request request = new Request.Builder()
+                .url(builder.build())
+                .post(body) //POST방식 적용.//
+                .tag(MainActivity.this)
+                .build();
+
+        /** 비동기 방식(enqueue)으로 Callback 구현 **/
+        client.newCall(request).enqueue(requeshashcallback);
+    }
+
+    private Callback requeshashcallback = new Callback() {
+        @Override
+        public void onFailure(Call call, IOException e) //접속 실패의 경우.//
+        {
+            //네트워크 자체에서의 에러상황.//
+            Log.d("ERROR Message : ", e.getMessage());
+
+            if (MainActivity.this != null) {
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        hidepDialog();
+                    }
+                });
+            }
+        }
+
+        @Override
+        public void onResponse(Call call, Response response) throws IOException {
+            final String response_data = response.body().string();
+
+            Log.d("json data", response_data);
+
+            if (MainActivity.this != null) {
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        hidepDialog();
+
+                        log_data_str += response_data + "\n";
+
+                        Gson gson = new Gson();
+
+                        ShaAlgorithmRequest sha_request = gson.fromJson(response_data, ShaAlgorithmRequest.class);
+
+                        String encrypt_sha_data = sha_request.getData().getEncrypt();
+
+                        log_data_str = log_data_str + "hash value : " + encrypt_sha_data;
+
+                        log_textview.setText(log_data_str);
+                    }
+                });
+            }
+        }
+    };
 
     private Callback requesciphercallback = new Callback() {
         @Override
