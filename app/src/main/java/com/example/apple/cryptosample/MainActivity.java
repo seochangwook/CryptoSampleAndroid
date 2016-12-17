@@ -269,7 +269,8 @@ public class MainActivity extends AppCompatActivity {
 
         //SHA512암호화//
         try {
-            encryptedMsg = AESForNodejs.SHA256(plain_text,"SHA-512");
+            //encryptedMsg = AESForNodejs.SHA512(plain_text,"SHA-512");
+            encryptedMsg = AESForNodejs.encryptSHA512(plain_text);
         } catch (Exception e) {
             e.printStackTrace();
         }
